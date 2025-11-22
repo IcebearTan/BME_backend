@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { 
   Document, User, ChatLineRound, Trophy, Setting, Location, 
   Grid, Fold, Bell, ArrowDown, Clock, EditPen, TrendCharts, 
-  HomeFilled, Picture, Search
+  HomeFilled, Picture, Search, Tickets
 } from '@element-plus/icons-vue';
 
 export default {
@@ -36,7 +36,8 @@ export default {
         '/group/manage': '小组管理',
         '/learningprgress/manage': '学习进度',
         '/medal/manage': '勋章管理',
-        '/medal/grant': '勋章查询'
+        '/medal/grant': '勋章查询',
+        '/audit/logs': '审计日志'
       };
       return routeMap[this.$route.path] || '系统管理';
     }
@@ -323,8 +324,12 @@ const handleClose = (key, keyPath) => {
         </el-menu>
       </div>
 
-      <!-- 底部系统设置 -->
+      <!-- 底部日志和设置 -->
       <div class="sidebar-footer">
+        <div class="settings-item" @click="router.push('/audit/logs')">
+          <el-icon class="menu-icon"><Tickets /></el-icon>
+          <span class="menu-text" v-show="!sidebarCollapsed">审计日志</span>
+        </div>
         <div class="settings-item" @click="handleSettingsClick">
           <el-icon class="menu-icon"><Setting /></el-icon>
           <span class="menu-text" v-show="!sidebarCollapsed">系统设置</span>
@@ -554,7 +559,7 @@ const handleClose = (key, keyPath) => {
   background: transparent !important;
   border-radius: var(--radius-md) !important;
   margin: 3px 0 !important;
-  transition: all var(--transition-fast) !important;
+  transition: all 0.1s ease !important; /* 从 var(--transition-fast) 改为 0.1s 快速响应 */
   padding: 0 16px !important;
   height: 48px !important;
   line-height: 48px !important;
@@ -568,6 +573,13 @@ const handleClose = (key, keyPath) => {
   color: #ffffff !important;
   transform: translateX(4px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 添加点击激活状态 - 即时反馈 */
+.admin-layout .modern-menu .el-sub-menu__title:active,
+.admin-layout .modern-menu .el-menu-item:active {
+  transform: translateX(2px);
+  transition: transform 0.05s ease !important;
 }
 
 /* 激活状态 - 更明显的视觉反馈 */
@@ -620,12 +632,12 @@ const handleClose = (key, keyPath) => {
 .admin-layout .submenu-item {
   background: transparent !important;
   color: rgba(255, 255, 255, 0.8) !important;
-  margin: 2px 8px !important;
-  height: 36px !important;
-  line-height: 36px !important;
-  font-size: 14px !important;
   border-radius: var(--radius-sm) !important;
+  margin: 2px 8px !important;
   padding-left: 48px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  transition: all 0.1s ease !important; /* 快速响应 */
   border: none !important;
 }
 
@@ -634,6 +646,13 @@ const handleClose = (key, keyPath) => {
   background: rgba(255, 255, 255, 0.12) !important;
   color: #ffffff !important;
   transform: translateX(2px);
+}
+
+/* 子菜单项点击激活状态 */
+.admin-layout .modern-menu .el-sub-menu .el-menu .el-menu-item:active,
+.admin-layout .submenu-item:active {
+  transform: translateX(1px);
+  transition: transform 0.05s ease !important;
 }
 
 .admin-layout .modern-menu .el-sub-menu .el-menu .el-menu-item.is-active,
@@ -697,7 +716,7 @@ const handleClose = (key, keyPath) => {
   padding: 0 16px !important;
   height: 48px !important;
   line-height: 48px !important;
-  transition: all var(--transition-fast) !important;
+  transition: all 0.1s ease !important; /* 快速响应，从 var(--transition-fast) 改为 0.1s */
   cursor: pointer;
   user-select: none;
   margin: 3px 0;
@@ -710,6 +729,12 @@ const handleClose = (key, keyPath) => {
   color: #ffffff !important;
   transform: translateX(4px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 添加激活状态 - 点击时的即时反馈 */
+.admin-layout .settings-item:active {
+  transform: translateX(2px);
+  transition: transform 0.05s ease !important;
 }
 
 .admin-layout .settings-item .menu-icon {

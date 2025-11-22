@@ -19,6 +19,7 @@ import LearningProgress from './components/LearningProgress.vue';
 import HomeCoverManage from './components/HomeCoverManage.vue';
 import MedalManage from './components/MedalManage.vue';
 import MedalGrant from './components/MedalGrant.vue';
+import AuditLogManage from './components/AuditLogManage.vue';
 
 const router = createRouter({
     history: createWebHistory("/admin/"),
@@ -82,6 +83,11 @@ const router = createRouter({
                     path: '/medal/grant',
                     name: 'medal_grant',
                     component: MedalGrant
+                },
+                {
+                    path: '/audit/logs',
+                    name: 'audit_logs',
+                    component: AuditLogManage
                 }
             ]
         },

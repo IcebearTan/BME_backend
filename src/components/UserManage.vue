@@ -2,11 +2,13 @@
 import api from '../api';
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Select, CloseBold } from '@element-plus/icons-vue';
 
 const formInline = reactive({
   key: ''
 });
 const dialogFormVisible = ref(false);
+const permissionDialogVisible = ref(false);
 const users = ref([]);
 const allUsers = ref([]);
 const filteredUsers = ref([]); // 新增：用于存储当前筛选后的用户列表
@@ -14,6 +16,13 @@ const currentPage = ref(1);//当前页面
 const pageSize = ref(16);//每页显示的条数
 const action = ref('edit');
 const totalItems = ref(0);//总条数
+
+// 权限管理相关
+const allPermissions = ref([]);
+const currentUser = ref(null);
+const userPermissions = ref([]);
+const selectedPermissions = ref([]);
+const permissionLoading = ref(false);
 
 // const handleSearch = async () => {//搜索框逻辑，后端搜索
 //   try {
@@ -114,10 +123,108 @@ const handlePageChange = (page) => {
   updatePagedUsers();
 };
 
+// 获取所有权限列表
+const fetchAllPermissions = async () => {
+  try {
+    const response = await api({
+      url: '/permissions/list',
+      method: 'get'
+    });
+    if (response.data.code === 200) {
+      allPermissions.value = response.data.permissions || [];
+    }
+  } catch (error) {
+    ElMessage.error('获取权限列表失败');
+    console.error('获取权限列表失败:', error);
+  }
+};
+
+// 获取用户权限
+const fetchUserPermissions = async (userId) => {
+  permissionLoading.value = true;
+  try {
+    const response = await api({
+      url: `/permissions/user/${userId}`,
+      method: 'get'
+    });
+    if (response.data.code === 200) {
+      userPermissions.value = response.data.permissions || [];
+      selectedPermissions.value = userPermissions.value.map(p => p.id);
+    }
+  } catch (error) {
+    ElMessage.error('获取用户权限失败');
+    console.error('获取用户权限失败:', error);
+  } finally {
+    permissionLoading.value = false;
+  }
+};
+
+// 打开权限管理对话框
+const handleEditPermissions = async (user) => {
+  currentUser.value = user;
+  await fetchUserPermissions(user.User_Id);
+  permissionDialogVisible.value = true;
+};
+
+// 智能切换全选/全不选
+const handleToggleSelectAll = () => {
+  // 如果有任何权限被选中，则清空；否则全选
+  if (selectedPermissions.value.length > 0) {
+    selectedPermissions.value = [];
+  } else {
+    selectedPermissions.value = allPermissions.value.map(p => p.id);
+  }
+};
+
+// 保存权限更改
+const handleSavePermissions = async () => {
+  if (!currentUser.value) return;
+  
+  permissionLoading.value = true;
+  try {
+    // 找出需要添加和删除的权限
+    const currentPermissionIds = userPermissions.value.map(p => p.id);
+    const toAdd = selectedPermissions.value.filter(id => !currentPermissionIds.includes(id));
+    const toRemove = currentPermissionIds.filter(id => !selectedPermissions.value.includes(id));
+    
+    // 分配新权限
+    for (const permissionId of toAdd) {
+      await api({
+        url: '/permissions/assign',
+        method: 'post',
+        data: {
+          user_id: currentUser.value.User_Id,
+          permission_id: permissionId
+        }
+      });
+    }
+    
+    // 撤销权限
+    for (const permissionId of toRemove) {
+      await api({
+        url: '/permissions/revoke',
+        method: 'post',
+        data: {
+          user_id: currentUser.value.User_Id,
+          permission_id: permissionId
+        }
+      });
+    }
+    
+    ElMessage.success('权限更新成功');
+    permissionDialogVisible.value = false;
+  } catch (error) {
+    ElMessage.error('权限更新失败: ' + (error.response?.data?.message || error.message));
+    console.error('权限更新失败:', error);
+  } finally {
+    permissionLoading.value = false;
+  }
+};
+
 onMounted(() => {
   fetchUsers();
-  
-})
+  fetchAllPermissions();
+});
 </script>
 
 <template>
@@ -162,10 +269,10 @@ onMounted(() => {
           <el-table-column v-for="item in tableLabel" :key="item.prop" :prop="item.prop" :label="item.label" 
             :width="item.width ? item.width : 125" />   
            <!-- <el-table :data="users" style="width: 100%; max-height: 700px;"> -->
-          <el-table-column fixed="right" label="Operations" min-width="120">
+          <el-table-column fixed="right" label="Operations" min-width="180">
             
             <template #="scoped">
-              <el-button type="primary" size="small" @click="handleEdit(scoped.row)">编辑</el-button>
+              <el-button type="primary" size="small" @click="handleEditPermissions(scoped.row)">编辑权限</el-button>
               <el-button type="danger" size="small" @click="handleDelete(scoped.row)">删除</el-button>
             </template>
           
@@ -202,6 +309,77 @@ onMounted(() => {
         <div class="dialog-footer">
           <el-button @click="handleCancle">取消</el-button>
           <el-button type="primary" @click="handleSubmit">确认</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 权限管理对话框 -->
+    <el-dialog 
+      v-model="permissionDialogVisible" 
+      title="用户权限管理" 
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="permissionLoading">
+        <el-alert
+          title="权限说明"
+          type="info"
+          :closable="false"
+          style="margin-bottom: 20px;"
+        >
+          <template #default>
+            <p style="margin: 0;">正在编辑用户: <strong>{{ currentUser?.User_Name }}</strong></p>
+            <p style="margin: 5px 0 0 0;">请选择要分配给该用户的权限</p>
+          </template>
+        </el-alert>
+
+        <!-- 智能全选按钮 -->
+        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+          <el-button 
+            size="small" 
+            @click="handleToggleSelectAll"
+            :type="selectedPermissions.length > 0 ? 'warning' : 'primary'"
+          >
+            <el-icon><component :is="selectedPermissions.length > 0 ? CloseBold : Select" /></el-icon>
+            {{ selectedPermissions.length > 0 ? '清空选择' : '全选' }}
+          </el-button>
+          <el-tag type="info" size="small">
+            已选择 {{ selectedPermissions.length }} / {{ allPermissions.length }} 项权限
+          </el-tag>
+        </div>
+
+        <el-checkbox-group v-model="selectedPermissions">
+          <div style="display: flex; flex-direction: column; gap: 15px;">
+            <el-card 
+              v-for="permission in allPermissions" 
+              :key="permission.id"
+              shadow="hover"
+              style="cursor: pointer;"
+              :class="{ 'permission-selected': selectedPermissions.includes(permission.id) }"
+            >
+              <el-checkbox 
+                :label="permission.id" 
+                style="width: 100%;"
+              >
+                <div style="display: flex; flex-direction: column;">
+                  <span style="font-weight: 600; font-size: 16px;">{{ permission.name }}</span>
+                  <span style="color: #909399; font-size: 14px; margin-top: 5px;">{{ permission.description }}</span>
+                </div>
+              </el-checkbox>
+            </el-card>
+          </div>
+        </el-checkbox-group>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="permissionDialogVisible = false">取消</el-button>
+          <el-button 
+            type="primary" 
+            @click="handleSavePermissions"
+            :loading="permissionLoading"
+          >
+            保存
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -313,6 +491,10 @@ onMounted(() => {
   margin-left: 10px;
 }
 
+.permission-selected {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
 
 </style>
 
