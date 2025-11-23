@@ -21,6 +21,7 @@ export default {
       userAvatar: '',
       store: useStore(),
       router: useRouter(),
+      userPermissions: [], // 用户权限列表
     };
   },
 
@@ -40,7 +41,44 @@ export default {
         '/audit/logs': '审计日志'
       };
       return routeMap[this.$route.path] || '系统管理';
+    },
+    // 检查是否有特定权限（所有用户包括管理员都基于权限列表）
+    hasUserManagement() {
+      return this.userPermissions.includes('user_management');
+    },
+    hasArticleManagement() {
+      return this.userPermissions.includes('article_management');
+    },
+    hasCourseManagement() {
+      return this.userPermissions.includes('course_management');
+    },
+    hasMedalManagement() {
+      return this.userPermissions.includes('medal_management');
+    },
+    hasSystemManagement() {
+      return this.userPermissions.includes('system_management');
+    },
+    // 检查是否拥有全部权限（用于显示禁用的开发中功能）
+    hasAllPermissions() {
+      const allPermissions = [
+        'user_management',
+        'article_management',
+        'course_management',
+        'medal_management',
+        'system_management'
+      ];
+      return allPermissions.every(permission => this.userPermissions.includes(permission));
     }
+  },
+
+  mounted() {
+    // 监听权限更新事件
+    window.addEventListener('permissions-updated', this.handlePermissionsUpdated);
+  },
+
+  beforeUnmount() {
+    // 清理事件监听
+    window.removeEventListener('permissions-updated', this.handlePermissionsUpdated);
   },
 
   methods: {
@@ -72,21 +110,72 @@ export default {
 
     handleSettingsClick() {
       this.$message.info('系统设置功能开发中...');
+    },
+
+    // 处理权限更新事件
+    async handlePermissionsUpdated() {
+      console.log('检测到权限更新，正在刷新侧边栏...');
+      await this.fetchUserPermissions();
+      ElMessage.success('侧边栏已更新');
+    },
+
+    // 获取用户权限
+    async fetchUserPermissions() {
+      try {
+        // 从 store.state.user 中获取用户ID（格式化后的字符串，需要转换为整数）
+        const userIdStr = this.store.state.user?.User_Id;
+        
+        if (!userIdStr) {
+          console.error('无法获取用户ID');
+          ElMessage.error('获取用户信息失败，请重新登录');
+          return;
+        }
+        
+        // 将格式化的字符串ID转换为整数
+        const userId = parseInt(userIdStr, 10);
+        
+        console.log('正在获取用户权限，用户ID:', userId);
+        
+        const response = await api({
+          url: `/permissions/user/${userId}`,
+          method: 'get'
+        });
+        
+        if (response.data.code === 200) {
+          // 提取权限名称列表
+          this.userPermissions = response.data.permissions.map(p => p.name);
+          console.log('用户权限列表:', this.userPermissions);
+        } else {
+          console.warn('获取权限返回非200状态:', response.data);
+        }
+      } catch (error) {
+        console.error('获取用户权限失败:', error);
+        ElMessage.error('获取用户权限失败，可能权限接口未配置');
+      }
     }
   },
 
   async created() {
-    api({
-      url: "/user/user_index",
-      method: "get",
-    }).catch((error) => {
-      ElMessage.error('登录失效，请重新登录')
-      this.router.push('/login')
-    }).then((res) => {
+    try {
+      // 获取用户信息
+      const res = await api({
+        url: "/user/user_index",
+        method: "get",
+      });
+      
       if (res.data.code == 200) {
-        this.store.dispatch('setUser', res.data)
+        this.store.dispatch('setUser', res.data);
+        console.log('用户信息已设置:', res.data);
+        
+        // 获取用户权限列表（所有用户包括管理员都需要）
+        await this.fetchUserPermissions();
       }
-    })
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
+      ElMessage.error('登录失效，请重新登录');
+      this.router.push('/login');
+      return;
+    }
 
     if (this.$route.path === '/') {
       this.activeIndex = '/dashboard'
@@ -185,7 +274,7 @@ const handleClose = (key, keyPath) => {
           @close="handleClose"
         >
           <!-- 用户管理 -->
-          <el-sub-menu index="1">
+          <el-sub-menu index="1" v-if="hasUserManagement">
             <template #title>
               <el-icon class="menu-icon"><User /></el-icon>
               <span class="menu-text">用户管理</span>
@@ -209,7 +298,7 @@ const handleClose = (key, keyPath) => {
           </el-sub-menu>
 
           <!-- 文章管理 -->
-          <el-sub-menu index="2">
+          <el-sub-menu index="2" v-if="hasArticleManagement">
             <template #title>
               <el-icon class="menu-icon"><Document /></el-icon>
               <span class="menu-text">文章管理</span>
@@ -227,6 +316,7 @@ const handleClose = (key, keyPath) => {
               @click="router.push('/article/create')" 
               disabled
               class="submenu-item"
+              v-if="hasAllPermissions"
             >
               <el-icon><EditPen /></el-icon>
               <span>草稿箱</span>
@@ -234,7 +324,7 @@ const handleClose = (key, keyPath) => {
           </el-sub-menu>
 
           <!-- 小组管理 -->
-          <el-sub-menu index="4">
+          <el-sub-menu index="4" v-if="hasUserManagement">
             <template #title>
               <el-icon class="menu-icon"><ChatLineRound /></el-icon>
               <span class="menu-text">小组管理</span>
@@ -250,7 +340,7 @@ const handleClose = (key, keyPath) => {
           </el-sub-menu>
 
           <!-- 课程管理 (禁用) -->
-          <el-sub-menu index="3" disabled>
+          <el-sub-menu index="3" disabled v-if="hasAllPermissions">
             <template #title>
               <el-icon class="menu-icon"><Location /></el-icon>
               <span class="menu-text">课程管理</span>
@@ -266,7 +356,7 @@ const handleClose = (key, keyPath) => {
           </el-sub-menu>
 
           <!-- 学习进度管理 -->
-          <el-sub-menu index="5">
+          <el-sub-menu index="5" v-if="hasUserManagement">
             <template #title>
               <el-icon class="menu-icon"><TrendCharts /></el-icon>
               <span class="menu-text">学习进度管理</span>
@@ -282,7 +372,7 @@ const handleClose = (key, keyPath) => {
           </el-sub-menu>
 
           <!-- 首页管理 (禁用) -->
-          <el-sub-menu index="6" disabled>
+          <el-sub-menu index="6" disabled v-if="hasAllPermissions">
             <template #title>
               <el-icon class="menu-icon"><HomeFilled /></el-icon>
               <span class="menu-text">首页管理</span>
@@ -298,7 +388,7 @@ const handleClose = (key, keyPath) => {
           </el-sub-menu>
 
           <!-- 勋章管理 -->
-          <el-sub-menu index="7">
+          <el-sub-menu index="7" v-if="hasMedalManagement">
             <template #title>
               <el-icon class="menu-icon"><Trophy /></el-icon>
               <span class="menu-text">勋章管理</span>
@@ -316,6 +406,7 @@ const handleClose = (key, keyPath) => {
               @click="router.push('/medal/grant')" 
               disabled
               class="submenu-item"
+              v-if="hasAllPermissions"
             >
               <el-icon><Search /></el-icon>
               <span>勋章查询</span>
@@ -326,7 +417,7 @@ const handleClose = (key, keyPath) => {
 
       <!-- 底部日志和设置 -->
       <div class="sidebar-footer">
-        <div class="settings-item" @click="router.push('/audit/logs')">
+        <div class="settings-item" @click="router.push('/audit/logs')" v-if="hasSystemManagement">
           <el-icon class="menu-icon"><Tickets /></el-icon>
           <span class="menu-text" v-show="!sidebarCollapsed">审计日志</span>
         </div>

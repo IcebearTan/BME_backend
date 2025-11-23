@@ -228,34 +228,19 @@ const fetchLogs = async () => {
     });
 
     if (response.data.code === 200) {
+      // 直接使用后端返回的数据和分页信息，不进行前端筛选
+      // 原因：前端筛选会导致分页数据不完整，影响用户体验
       logs.value = response.data.data.logs || [];
       totalItems.value = response.data.data.pagination.total || 0;
       
-      // 前端筛选：按用户名和结果筛选
-      let filteredLogs = logs.value;
-      
-      if (filterForm.username) {
-        filteredLogs = filteredLogs.filter(log => 
-          log.username.includes(filterForm.username)
-        );
-      }
-      
-      if (filterForm.result) {
-        filteredLogs = filteredLogs.filter(log => 
-          log.result === filterForm.result
-        );
-      }
-      
-      if (filterForm.dateRange && filterForm.dateRange.length === 2) {
-        const [startDate, endDate] = filterForm.dateRange;
-        filteredLogs = filteredLogs.filter(log => {
-          const logDate = new Date(log.timestamp);
-          return logDate >= new Date(startDate) && logDate <= new Date(endDate);
+      // 注意：用户名、结果、日期范围筛选需要后端支持
+      // 目前仅支持操作类型筛选
+      if (filterForm.username || filterForm.result || filterForm.dateRange) {
+        ElMessage.warning('用户名、结果、日期范围筛选功能需要后端接口支持，当前仅显示操作类型筛选结果', {
+          duration: 3000,
+          showClose: true
         });
       }
-      
-      logs.value = filteredLogs;
-      totalItems.value = filteredLogs.length;
     } else {
       ElMessage.error(response.data.message || '获取日志失败');
     }

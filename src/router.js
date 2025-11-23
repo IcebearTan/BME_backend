@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import api from './api';
 
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
@@ -32,12 +34,14 @@ const router = createRouter({
                 {
                     path: '/user-manage/users',
                     name: 'user_manage_users',
-                    component: UserManage
+                    component: UserManage,
+                    meta: { requiresAuth: true, permission: 'user_management' }
                 },
                 {
                     path: '/user-manage/attendence',
                     name: 'user_manage_attendence',
-                    component: UserAttendence
+                    component: UserAttendence,
+                    meta: { requiresAuth: true, permission: 'user_management' }
                 },
                 {
                     path: '',
@@ -52,42 +56,50 @@ const router = createRouter({
                 {
                     path: '/article/manage',
                     name: 'article_manage',
-                    component: ArticleManage
+                    component: ArticleManage,
+                    meta: { requiresAuth: true, permission: 'article_management' }
                 },
                 {
                     path: '/article/create',
                     name: 'article_create',
-                    component: ArticleCreate
+                    component: ArticleCreate,
+                    meta: { requiresAuth: true, permission: 'article_management' }
                 },
                 {
-                    path: '/group/manage', // 修复路径，确保以 '/' 开头
+                    path: '/group/manage',
                     name: 'group_manage',
-                    component: GroupManage
+                    component: GroupManage,
+                    meta: { requiresAuth: true, permission: 'user_management' }
                 },
                 {
                     path: '/learningprgress/manage',
                     name: 'learningprgress_manage',
-                    component: LearningProgress
+                    component: LearningProgress,
+                    meta: { requiresAuth: true, permission: 'user_management' }
                 },
                 {
                     path: '/homepage/cover',
                     name: 'homepage_cover',
-                    component: HomeCoverManage
+                    component: HomeCoverManage,
+                    meta: { requiresAuth: true, permission: 'system_management' }
                 },
                 {
                     path: '/medal/manage',
                     name: 'medal_manage',
-                    component: MedalManage
+                    component: MedalManage,
+                    meta: { requiresAuth: true, permission: 'medal_management' }
                 },
                 {
                     path: '/medal/grant',
                     name: 'medal_grant',
-                    component: MedalGrant
+                    component: MedalGrant,
+                    meta: { requiresAuth: true, permission: 'medal_management' }
                 },
                 {
                     path: '/audit/logs',
                     name: 'audit_logs',
-                    component: AuditLogManage
+                    component: AuditLogManage,
+                    meta: { requiresAuth: true, permission: 'system_management' }
                 }
             ]
         },
@@ -113,5 +125,63 @@ const router = createRouter({
         }
     ]
 })
+
+// 全局路由守卫：检查权限
+router.beforeEach(async (to, from, next) => {
+  // 公开路由，无需验证
+  const publicPages = ['/login', '/register', '/editor', '/public'];
+  const authRequired = !publicPages.includes(to.path);
+  const token = localStorage.getItem('token');
+
+  // 需要登录但未登录
+  if (authRequired && !token) {
+    ElMessage.error('请先登录');
+    return next('/login');
+  }
+
+  // 检查路由权限
+  if (to.meta.requiresAuth && to.meta.permission) {
+    try {
+      // 获取用户信息
+      const userRes = await api({
+        url: '/user/user_index',
+        method: 'get'
+      });
+
+      if (userRes.data.code !== 200) {
+        ElMessage.error('获取用户信息失败');
+        return next('/login');
+      }
+
+      const userId = parseInt(userRes.data.User_Id, 10);
+
+      // 获取用户权限
+      const permRes = await api({
+        url: `/permissions/user/${userId}`,
+        method: 'get'
+      });
+
+      if (permRes.data.code !== 200) {
+        ElMessage.error('获取权限信息失败');
+        return next('/dashboard');
+      }
+
+      const userPermissions = permRes.data.permissions.map(p => p.name);
+      const requiredPermission = to.meta.permission;
+
+      // 检查是否有所需权限
+      if (!userPermissions.includes(requiredPermission)) {
+        ElMessage.error(`您没有访问此页面的权限（需要: ${requiredPermission}）`);
+        return next('/dashboard');
+      }
+    } catch (error) {
+      console.error('权限验证失败:', error);
+      ElMessage.error('权限验证失败');
+      return next('/dashboard');
+    }
+  }
+
+  next();
+});
 
 export default router

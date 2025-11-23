@@ -213,6 +213,9 @@ const handleSavePermissions = async () => {
     
     ElMessage.success('权限更新成功');
     permissionDialogVisible.value = false;
+    
+    // 触发权限更新事件，通知父组件刷新
+    window.dispatchEvent(new CustomEvent('permissions-updated'));
   } catch (error) {
     ElMessage.error('权限更新失败: ' + (error.response?.data?.message || error.message));
     console.error('权限更新失败:', error);
@@ -269,11 +272,10 @@ onMounted(() => {
           <el-table-column v-for="item in tableLabel" :key="item.prop" :prop="item.prop" :label="item.label" 
             :width="item.width ? item.width : 125" />   
            <!-- <el-table :data="users" style="width: 100%; max-height: 700px;"> -->
-          <el-table-column fixed="right" label="Operations" min-width="180">
+          <el-table-column fixed="right" label="Operations" min-width="120">
             
             <template #="scoped">
-              <el-button type="primary" size="small" @click="handleEditPermissions(scoped.row)">编辑权限</el-button>
-              <el-button type="danger" size="small" @click="handleDelete(scoped.row)">删除</el-button>
+              <el-button type="primary" @click="handleEditPermissions(scoped.row)" style="width: 100px;">编辑权限</el-button>
             </template>
           
           </el-table-column>
