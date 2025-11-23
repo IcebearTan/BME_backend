@@ -97,7 +97,7 @@ export default {
                 if (res.data.code == 200) {
                     console.log(res.data.token, 'token')
                     // 将数据存入浏览器
-                    localStorage.setItem("token", res.data.token)
+                    localStorage.setItem("token_backend", res.data.token)
                 }
             })
 
@@ -145,7 +145,7 @@ export default {
                 if (res.data.code == 200) {
                     console.log(res.data.token, 'token')
                     // 将数据存入浏览器
-                    localStorage.setItem("token", res.data.token)
+                    localStorage.setItem("token_backend", res.data.token)
 
                     this.$router.push('/login')
                     

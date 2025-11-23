@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router';
 export default new Vuex.Store({
     state: {
         user: null,
-        token: localStorage.getItem('token') || null,
+        token: localStorage.getItem('token_backend') || null,
         isLogin: false,
     },
     mutations: {
@@ -20,7 +20,9 @@ export default new Vuex.Store({
             state.user = user
         },
         clearUser(state) {
-            state.user = null
+            state.user = null;
+            state.token = null;
+            localStorage.removeItem('token_backend');
         }
     },
     actions: {

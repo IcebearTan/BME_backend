@@ -122,35 +122,37 @@ export default {
     // 获取用户权限
     async fetchUserPermissions() {
       try {
-        // 从 store.state.user 中获取用户ID（格式化后的字符串，需要转换为整数）
-        const userIdStr = this.store.state.user?.User_Id;
-        
-        if (!userIdStr) {
-          console.error('无法获取用户ID');
-          ElMessage.error('获取用户信息失败，请重新登录');
-          return;
-        }
-        
-        // 将格式化的字符串ID转换为整数
-        const userId = parseInt(userIdStr, 10);
-        
-        console.log('正在获取用户权限，用户ID:', userId);
+        console.log('正在获取当前用户权限...');
         
         const response = await api({
-          url: `/permissions/user/${userId}`,
+          url: '/permissions/user/self',
           method: 'get'
         });
         
         if (response.data.code === 200) {
-          // 提取权限名称列表
-          this.userPermissions = response.data.permissions.map(p => p.name);
-          console.log('用户权限列表:', this.userPermissions);
+          const userMode = response.data.user_mode;
+          
+          // 如果是 admin 用户，赋予所有权限
+          if (userMode === 'admin') {
+            this.userPermissions = [
+              'user_management',
+              'article_management',
+              'course_management',
+              'medal_management',
+              'system_management'
+            ];
+            console.log('Admin 用户，已赋予所有权限');
+          } else {
+            // 普通用户，使用接口返回的权限列表
+            this.userPermissions = response.data.permissions.map(p => p.name);
+            console.log('普通用户权限列表:', this.userPermissions);
+          }
         } else {
           console.warn('获取权限返回非200状态:', response.data);
         }
       } catch (error) {
         console.error('获取用户权限失败:', error);
-        ElMessage.error('获取用户权限失败，可能权限接口未配置');
+        ElMessage.error('获取用户权限失败');
       }
     }
   },

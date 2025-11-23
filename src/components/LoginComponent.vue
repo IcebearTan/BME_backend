@@ -60,7 +60,7 @@ export default {
                 if (res.data.code == 200) {
                     console.log(res)
                     // 将数据存入浏览器
-                    localStorage.setItem("token", res.data.token)
+                    localStorage.setItem("token_backend", res.data.token)
                     this.store.commit('setUser', res.data)
                     this.$message({
                         message: '登录成功',

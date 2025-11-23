@@ -131,7 +131,7 @@ router.beforeEach(async (to, from, next) => {
   // 公开路由，无需验证
   const publicPages = ['/login', '/register', '/editor', '/public'];
   const authRequired = !publicPages.includes(to.path);
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token_backend');
 
   // 需要登录但未登录
   if (authRequired && !token) {
@@ -142,22 +142,9 @@ router.beforeEach(async (to, from, next) => {
   // 检查路由权限
   if (to.meta.requiresAuth && to.meta.permission) {
     try {
-      // 获取用户信息
-      const userRes = await api({
-        url: '/user/user_index',
-        method: 'get'
-      });
-
-      if (userRes.data.code !== 200) {
-        ElMessage.error('获取用户信息失败');
-        return next('/login');
-      }
-
-      const userId = parseInt(userRes.data.User_Id, 10);
-
-      // 获取用户权限
+      // 获取当前用户权限
       const permRes = await api({
-        url: `/permissions/user/${userId}`,
+        url: '/permissions/user/self',
         method: 'get'
       });
 
@@ -166,8 +153,16 @@ router.beforeEach(async (to, from, next) => {
         return next('/dashboard');
       }
 
-      const userPermissions = permRes.data.permissions.map(p => p.name);
+      const userMode = permRes.data.user_mode;
       const requiredPermission = to.meta.permission;
+
+      // 如果是 admin 用户，直接放行
+      if (userMode === 'admin') {
+        return next();
+      }
+
+      // 普通用户检查权限
+      const userPermissions = permRes.data.permissions.map(p => p.name);
 
       // 检查是否有所需权限
       if (!userPermissions.includes(requiredPermission)) {
